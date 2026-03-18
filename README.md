@@ -8,9 +8,9 @@ Each visitor sees their public IP address and a click button. Clicks are recorde
 
 ```
 ┌──────────────────┐       ┌────────────────────┐       ┌─────────────────┐
-│  Azure Static    │──────>│  Azure Functions    │─────>│   Azure SQL     │
-│  Web App (SWA)   │  API  │  (.NET 8 Isolated)  │  MI  │   Database      │
-│  Standard Tier   │       │  Consumption Plan   │      │   Basic Tier    │
+│  Azure Static    │──────>│  Azure Functions   │──────>│   Azure SQL     │
+│  Web App (SWA)   │  API  │  (.NET 8 Isolated) │   MI  │   Database      │
+│  Standard Tier   │       │  Consumption Plan  │       │   Basic Tier    │
 └──────────────────┘       └────────────────────┘       └─────────────────┘
    HTML/CSS/JS               C# / ADO.NET                Managed Identity
    Linked Backend            POST /api/click             (AAD-only auth)
