@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Azure Click Counter</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+    <!-- Animated background particles -->
+    <div class="bg-particles" id="particles"></div>
+
+    <!-- Floating gradient orbs -->
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <main class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="40" height="40" rx="12" fill="url(#logoGrad)" />
+                    <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="logoGrad" x1="0" y1="0" x2="40" y2="40">
+                            <stop stop-color="#6366f1"/>
+                            <stop offset="1" stop-color="#8b5cf6"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <span>Azure Click Counter</span>
+            </div>
+            <div class="badge">
+                <span class="badge-dot"></span>
+                <span>Live</span>
+            </div>
+        </header>
+
+        <!-- IP Address Card -->
+        <section class="ip-card glass-card">
+            <div class="ip-card-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+            </div>
+            <div class="ip-card-content">
+                <span class="ip-label">Your IP Address</span>
+                <span class="ip-value" id="ipAddress">Detecting...</span>
+            </div>
+        </section>
+
+        <!-- Stats Grid -->
+        <section class="stats-grid">
+            <div class="stat-card glass-card">
+                <div class="stat-icon stat-icon-total">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-label">Global Clicks</span>
+                    <span class="stat-value" id="totalCount">
+                        <span class="counter-loading"></span>
+                    </span>
+                </div>
+            </div>
+            <div class="stat-card glass-card">
+                <div class="stat-icon stat-icon-user">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-label">Your Clicks</span>
+                    <span class="stat-value" id="ipCount">
+                        <span class="counter-loading"></span>
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Click Button -->
+        <section class="click-section">
+            <button class="click-btn" id="clickBtn" aria-label="Record a click">
+                <span class="click-btn-bg"></span>
+                <span class="click-btn-content">
+                    <svg class="click-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/>
+                    </svg>
+                    <span class="click-text">Click Me!</span>
+                </span>
+            </button>
+            <p class="click-hint" id="clickHint">Click the button to record your visit</p>
+        </section>
+
+        <!-- Activity Feed -->
+        <section class="activity glass-card" id="activitySection" style="display: none;">
+            <h3 class="activity-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+                Recent Activity
+            </h3>
+            <div class="activity-feed" id="activityFeed"></div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Powered by <strong>Azure Static Web Apps</strong> + <strong>Azure Functions</strong> + <strong>Azure SQL</strong></p>
+        </footer>
+    </main>
+
+    <!-- Ripple effect container -->
+    <div class="ripple-container" id="rippleContainer"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

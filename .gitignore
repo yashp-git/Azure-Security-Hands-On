@@ -1,0 +1,27 @@
+# Build & publish output
+publish/
+bin/
+obj/
+
+# .NET
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Azure Functions
+local.settings.json
+
+# Node / SWA CLI
+node_modules/
+.swa/
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
