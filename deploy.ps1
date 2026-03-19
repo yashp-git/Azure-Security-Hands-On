@@ -124,7 +124,14 @@ Write-Ok "AAD Admin: $aadAdminLogin ($aadAdminObjectId)"
 # ─────────────────────────────────────────────
 Write-Step "Creating resource group: $ResourceGroupName"
 az group create --name $ResourceGroupName --location $Location --subscription $SubscriptionId --output none
-Write-Ok "Resource group ready"
+
+# If the RG already existed, its location is immutable — use actual location
+$actualLocation = az group show --name $ResourceGroupName --subscription $SubscriptionId --query location -o tsv
+if (-not [string]::IsNullOrEmpty($actualLocation) -and $actualLocation -ne $Location) {
+    Write-Info "Resource group already exists in '$actualLocation' (requested '$Location'). Using existing location."
+    $Location = $actualLocation
+}
+Write-Ok "Resource group ready ($Location)"
 
 # ─────────────────────────────────────────────
 # 4. Deploy Bicep Infrastructure
@@ -132,28 +139,23 @@ Write-Ok "Resource group ready"
 Write-Step "Deploying Bicep templates"
 
 $deploymentJson = $null
-$deploymentErr = $null
+$errFile = [System.IO.Path]::GetTempFileName()
 $deploymentJson = az deployment group create `
     --resource-group $ResourceGroupName `
     --subscription $SubscriptionId `
     --template-file "$scriptRoot/infra/main.bicep" `
     --parameters prefix=$Prefix location=$Location aadAdminObjectId=$aadAdminObjectId aadAdminLogin=$aadAdminLogin `
     --query "properties.outputs" `
-    -o json 2>$null
+    -o json 2>$errFile
 
 if ($LASTEXITCODE -ne 0) {
     Write-Err "Bicep deployment failed."
-    # Re-run to capture error output for display
-    $deploymentErr = az deployment group create `
-        --resource-group $ResourceGroupName `
-        --subscription $SubscriptionId `
-        --template-file "$scriptRoot/infra/main.bicep" `
-        --parameters prefix=$Prefix location=$Location aadAdminObjectId=$aadAdminObjectId aadAdminLogin=$aadAdminLogin `
-        -o json 2>&1
-    $deploymentErr | ForEach-Object { Write-Err $_ }
+    Get-Content $errFile | ForEach-Object { Write-Err "ERROR: $_" }
+    Remove-Item $errFile -Force -ErrorAction SilentlyContinue
     Write-Err "Tip: If you see a region provisioning error, try a different -Location (e.g. eastus, centralus, westus2)."
     exit 1
 }
+Remove-Item $errFile -Force -ErrorAction SilentlyContinue
 
 $deploymentOutput = $deploymentJson | ConvertFrom-Json
 

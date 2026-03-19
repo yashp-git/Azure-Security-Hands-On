@@ -114,7 +114,18 @@ Write-Ok "Function App: $functionAppName ($functionAppHostname)"
 # Detect resource group location for Log Analytics workspace
 $rgLocation = az group show --name $ResourceGroupName --subscription $SubscriptionId --query location -o tsv
 if ([string]::IsNullOrEmpty($rgLocation)) { $rgLocation = "eastus2" }
-Write-Ok "Region: $rgLocation"
+Write-Ok "Resource group region: $rgLocation"
+
+# If Log Analytics Workspace already exists, use its location to avoid conflict
+$existingLawLocation = az monitor log-analytics workspace show `
+    --resource-group $ResourceGroupName `
+    --workspace-name "$Prefix-waf-law" `
+    --subscription $SubscriptionId `
+    --query location -o tsv 2>$null
+if (-not [string]::IsNullOrEmpty($existingLawLocation)) {
+    $rgLocation = $existingLawLocation
+    Write-Ok "Using existing Log Analytics Workspace location: $rgLocation"
+}
 
 # ─────────────────────────────────────────────
 # 3. Deploy WAF + Front Door
@@ -122,6 +133,7 @@ Write-Ok "Region: $rgLocation"
 Write-Step "Deploying Azure WAF with Front Door"
 Write-Info "This may take several minutes as Front Door provisioning can be slow..."
 
+$errFile = [System.IO.Path]::GetTempFileName()
 $deploymentJson = az deployment group create `
     --resource-group $ResourceGroupName `
     --subscription $SubscriptionId `
@@ -132,21 +144,15 @@ $deploymentJson = az deployment group create `
         swaHostname=$swaHostname `
         functionAppHostname=$functionAppHostname `
     --query "properties.outputs" `
-    -o json 2>$null
+    -o json 2>$errFile
 
 if ($LASTEXITCODE -ne 0) {
     Write-Err "WAF Bicep deployment failed."
-    az deployment group create `
-        --resource-group $ResourceGroupName `
-        --subscription $SubscriptionId `
-        --template-file "$scriptRoot/main.bicep" `
-        --parameters `
-            prefix=$Prefix `
-            swaHostname=$swaHostname `
-            functionAppHostname=$functionAppHostname `
-        -o json 2>&1 | ForEach-Object { Write-Err $_ }
+    Get-Content $errFile | ForEach-Object { Write-Err "ERROR: $_" }
+    Remove-Item $errFile -Force -ErrorAction SilentlyContinue
     exit 1
 }
+Remove-Item $errFile -Force -ErrorAction SilentlyContinue
 
 $outputs = $deploymentJson | ConvertFrom-Json
 

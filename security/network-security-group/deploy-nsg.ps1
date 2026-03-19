@@ -213,6 +213,7 @@ if (-not [string]::IsNullOrEmpty($swaHostname)) {
 # ─────────────────────────────────────────────
 Write-Step "Deploying NSG security infrastructure"
 
+$errFile = [System.IO.Path]::GetTempFileName()
 $deploymentJson = az deployment group create `
     --resource-group $ResourceGroupName `
     --subscription $SubscriptionId `
@@ -227,27 +228,15 @@ $deploymentJson = az deployment group create `
         appServicePlanLocation=$appServicePlanLocation `
         storageAccountName=$storageAccountName `
     --query "properties.outputs" `
-    -o json 2>$null
+    -o json 2>$errFile
 
 if ($LASTEXITCODE -ne 0) {
     Write-Err "NSG Bicep deployment failed."
-    # Re-run to capture error output
-    az deployment group create `
-        --resource-group $ResourceGroupName `
-        --subscription $SubscriptionId `
-        --template-file "$scriptRoot/main.bicep" `
-        --parameters `
-            prefix=$Prefix `
-            location=$Location `
-            sqlServerName=$sqlServerName `
-            sqlDatabaseName=$sqlDatabaseName `
-            functionAppName=$functionAppName `
-            appServicePlanName=$appServicePlanName `
-            appServicePlanLocation=$appServicePlanLocation `
-            storageAccountName=$storageAccountName `
-        -o json 2>&1 | ForEach-Object { Write-Err $_ }
+    Get-Content $errFile | ForEach-Object { Write-Err "ERROR: $_" }
+    Remove-Item $errFile -Force -ErrorAction SilentlyContinue
     exit 1
 }
+Remove-Item $errFile -Force -ErrorAction SilentlyContinue
 
 $outputs = $deploymentJson | ConvertFrom-Json
 
