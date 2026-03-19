@@ -1,0 +1,724 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936",
+      "templateHash": "17902038710811977547"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "eastus2",
+      "metadata": {
+        "description": "Azure region for all resources"
+      }
+    },
+    "prefix": {
+      "type": "string",
+      "defaultValue": "clickapp",
+      "metadata": {
+        "description": "Resource naming prefix"
+      }
+    },
+    "sqlServerName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing SQL Server name"
+      }
+    },
+    "sqlDatabaseName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing SQL Database name"
+      }
+    },
+    "functionAppName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing Function App name"
+      }
+    },
+    "appServicePlanName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing App Service Plan name"
+      }
+    },
+    "appServicePlanLocation": {
+      "type": "string",
+      "metadata": {
+        "description": "Location of the existing App Service Plan (may differ from VNet location)"
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing Storage Account name used by the Function App"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "api-sql-nsg-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "8741006083367829992"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "prefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource naming prefix"
+              }
+            }
+          },
+          "variables": {
+            "nsgName": "[format('{0}-api-sql-nsg', parameters('prefix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[variables('nsgName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "AllowSqlFromApiSubnet",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Inbound",
+                      "access": "Allow",
+                      "protocol": "Tcp",
+                      "sourceAddressPrefix": "10.0.1.0/24",
+                      "sourcePortRange": "*",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "1433",
+                      "description": "Allow SQL traffic from API subnet only"
+                    }
+                  },
+                  {
+                    "name": "DenyAllInbound",
+                    "properties": {
+                      "priority": 4096,
+                      "direction": "Inbound",
+                      "access": "Deny",
+                      "protocol": "*",
+                      "sourceAddressPrefix": "*",
+                      "sourcePortRange": "*",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "*",
+                      "description": "Deny all other inbound traffic"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "outputs": {
+            "nsgId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+            },
+            "nsgName": {
+              "type": "string",
+              "value": "[variables('nsgName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "web-api-nsg-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "14335213718151068359"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "prefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource naming prefix"
+              }
+            }
+          },
+          "variables": {
+            "nsgName": "[format('{0}-web-api-nsg', parameters('prefix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[variables('nsgName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "AllowHttpsFromInternet",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Inbound",
+                      "access": "Allow",
+                      "protocol": "Tcp",
+                      "sourceAddressPrefix": "*",
+                      "sourcePortRange": "*",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "443",
+                      "description": "Allow HTTPS from any public IP (web/SWA traffic)"
+                    }
+                  },
+                  {
+                    "name": "AllowVirtualNetworkInbound",
+                    "properties": {
+                      "priority": 200,
+                      "direction": "Inbound",
+                      "access": "Allow",
+                      "protocol": "*",
+                      "sourceAddressPrefix": "VirtualNetwork",
+                      "sourcePortRange": "*",
+                      "destinationAddressPrefix": "VirtualNetwork",
+                      "destinationPortRange": "*",
+                      "description": "Allow internal VNet traffic (web to API)"
+                    }
+                  },
+                  {
+                    "name": "DenyAllInbound",
+                    "properties": {
+                      "priority": 4096,
+                      "direction": "Inbound",
+                      "access": "Deny",
+                      "protocol": "*",
+                      "sourceAddressPrefix": "*",
+                      "sourcePortRange": "*",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "*",
+                      "description": "Deny all other inbound traffic"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "outputs": {
+            "nsgId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+            },
+            "nsgName": {
+              "type": "string",
+              "value": "[variables('nsgName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vnet-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          },
+          "webApiNsgId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'web-api-nsg-deployment'), '2025-04-01').outputs.nsgId.value]"
+          },
+          "apiSqlNsgId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'api-sql-nsg-deployment'), '2025-04-01').outputs.nsgId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "4390418894133037108"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "prefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource naming prefix"
+              }
+            },
+            "webApiNsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "NSG resource ID for the API subnet"
+              }
+            },
+            "apiSqlNsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "NSG resource ID for the SQL subnet"
+              }
+            }
+          },
+          "variables": {
+            "vnetName": "[format('{0}-vnet', parameters('prefix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2024-01-01",
+              "name": "[variables('vnetName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "10.0.0.0/16"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "api-subnet",
+                    "properties": {
+                      "addressPrefix": "10.0.1.0/24",
+                      "networkSecurityGroup": {
+                        "id": "[parameters('webApiNsgId')]"
+                      },
+                      "delegations": [
+                        {
+                          "name": "delegation-web-serverfarms",
+                          "properties": {
+                            "serviceName": "Microsoft.Web/serverFarms"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "sql-subnet",
+                    "properties": {
+                      "addressPrefix": "10.0.2.0/24",
+                      "networkSecurityGroup": {
+                        "id": "[parameters('apiSqlNsgId')]"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "outputs": {
+            "vnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+            },
+            "vnetName": {
+              "type": "string",
+              "value": "[variables('vnetName')]"
+            },
+            "apiSubnetId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), '2024-01-01').subnets[0].id]"
+            },
+            "sqlSubnetId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), '2024-01-01').subnets[1].id]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'api-sql-nsg-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'web-api-nsg-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "sql-private-endpoint-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          },
+          "sqlServerResourceId": {
+            "value": "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
+          },
+          "sqlSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.sqlSubnetId.value]"
+          },
+          "vnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.vnetId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "4338613367428387728"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "prefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource naming prefix"
+              }
+            },
+            "sqlServerResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing SQL Server resource ID"
+              }
+            },
+            "sqlSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet ID for the SQL private endpoint"
+              }
+            },
+            "vnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "VNet ID to link the private DNS zone"
+              }
+            }
+          },
+          "variables": {
+            "privateEndpointName": "[format('{0}-sql-pe', parameters('prefix'))]",
+            "privateDnsZoneName": "[format('privatelink{0}', environment().suffixes.sqlServerHostname)]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-01-01",
+              "name": "[variables('privateEndpointName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('sqlSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-connection', variables('privateEndpointName'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('sqlServerResourceId')]",
+                      "groupIds": [
+                        "sqlServer"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "[variables('privateDnsZoneName')]",
+              "location": "global"
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', variables('privateDnsZoneName'), format('{0}-vnet-link', parameters('prefix')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', variables('privateEndpointName'), 'sqlDnsZoneGroup')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "sqlDnsConfig",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneName'))]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneName'))]",
+                "[resourceId('Microsoft.Network/privateEndpoints', variables('privateEndpointName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "privateEndpointName": {
+              "type": "string",
+              "value": "[variables('privateEndpointName')]"
+            },
+            "privateDnsZoneName": {
+              "type": "string",
+              "value": "[variables('privateDnsZoneName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'vnet-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "function-app-networking-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('appServicePlanLocation')]"
+          },
+          "functionAppName": {
+            "value": "[parameters('functionAppName')]"
+          },
+          "appServicePlanName": {
+            "value": "[parameters('appServicePlanName')]"
+          },
+          "storageAccountName": {
+            "value": "[parameters('storageAccountName')]"
+          },
+          "apiSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.apiSubnetId.value]"
+          },
+          "sqlServerFqdn": {
+            "value": "[format('{0}{1}', parameters('sqlServerName'), environment().suffixes.sqlServerHostname)]"
+          },
+          "sqlDatabaseName": {
+            "value": "[parameters('sqlDatabaseName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "8549770325141431142"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "functionAppName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing Function App name"
+              }
+            },
+            "appServicePlanName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing App Service Plan name"
+              }
+            },
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing Storage Account name used by the Function App"
+              }
+            },
+            "apiSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "API subnet resource ID for VNet integration"
+              }
+            },
+            "sqlServerFqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "SQL Server FQDN (private endpoint)"
+              }
+            },
+            "sqlDatabaseName": {
+              "type": "string",
+              "metadata": {
+                "description": "SQL Database name"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2023-12-01",
+              "name": "[parameters('appServicePlanName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "EP1",
+                "tier": "ElasticPremium",
+                "family": "EP",
+                "size": "EP1"
+              },
+              "properties": {
+                "reserved": false,
+                "maximumElasticWorkerCount": 20
+              }
+            },
+            {
+              "type": "Microsoft.Web/sites/networkConfig",
+              "apiVersion": "2023-12-01",
+              "name": "[format('{0}/{1}', parameters('functionAppName'), 'virtualNetwork')]",
+              "properties": {
+                "subnetResourceId": "[parameters('apiSubnetId')]",
+                "swiftSupported": true
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Web/sites/config",
+              "apiVersion": "2023-12-01",
+              "name": "[format('{0}/{1}', parameters('functionAppName'), 'appsettings')]",
+              "properties": {
+                "AzureWebJobsStorage": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-05-01').keys[0].value)]",
+                "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-05-01').keys[0].value)]",
+                "WEBSITE_CONTENTSHARE": "[toLower(parameters('functionAppName'))]",
+                "FUNCTIONS_EXTENSION_VERSION": "~4",
+                "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+                "WEBSITE_VNET_ROUTE_ALL": "1",
+                "WEBSITE_DNS_SERVER": "168.63.129.16",
+                "SqlConnectionString": "[format('Server=tcp:{0},1433;Database={1};Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;', parameters('sqlServerFqdn'), parameters('sqlDatabaseName'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites/networkConfig', parameters('functionAppName'), 'virtualNetwork')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vnetIntegrationConfigured": {
+              "type": "bool",
+              "value": true
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'sql-private-endpoint-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'vnet-deployment')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "vnetName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet-deployment'), '2025-04-01').outputs.vnetName.value]"
+    },
+    "apiSqlNsgName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'api-sql-nsg-deployment'), '2025-04-01').outputs.nsgName.value]"
+    },
+    "webApiNsgName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'web-api-nsg-deployment'), '2025-04-01').outputs.nsgName.value]"
+    },
+    "sqlPrivateEndpointName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'sql-private-endpoint-deployment'), '2025-04-01').outputs.privateEndpointName.value]"
+    },
+    "functionAppVnetIntegrated": {
+      "type": "bool",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'function-app-networking-deployment'), '2025-04-01').outputs.vnetIntegrationConfigured.value]"
+    }
+  }
+}

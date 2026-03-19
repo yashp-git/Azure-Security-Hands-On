@@ -1,0 +1,515 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936",
+      "templateHash": "10498044631485973075"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "eastus2",
+      "metadata": {
+        "description": "Azure region for all resources"
+      }
+    },
+    "prefix": {
+      "type": "string",
+      "defaultValue": "clickapp",
+      "metadata": {
+        "description": "Resource naming prefix"
+      }
+    },
+    "aadAdminObjectId": {
+      "type": "string",
+      "metadata": {
+        "description": "AAD admin object ID for SQL Server"
+      }
+    },
+    "aadAdminLogin": {
+      "type": "string",
+      "metadata": {
+        "description": "AAD admin login (UPN) for SQL Server"
+      }
+    }
+  },
+  "variables": {
+    "uniqueSuffix": "[uniqueString(resourceGroup().id)]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "sql-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          },
+          "uniqueSuffix": {
+            "value": "[variables('uniqueSuffix')]"
+          },
+          "aadAdminObjectId": {
+            "value": "[parameters('aadAdminObjectId')]"
+          },
+          "aadAdminLogin": {
+            "value": "[parameters('aadAdminLogin')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "18192506117463376111"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "prefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource naming prefix"
+              }
+            },
+            "uniqueSuffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Unique suffix for globally unique names"
+              }
+            },
+            "aadAdminObjectId": {
+              "type": "string",
+              "metadata": {
+                "description": "AAD admin object ID (deployer)"
+              }
+            },
+            "aadAdminLogin": {
+              "type": "string",
+              "metadata": {
+                "description": "AAD admin login (deployer UPN)"
+              }
+            }
+          },
+          "variables": {
+            "serverName": "[format('{0}-sql-{1}', parameters('prefix'), parameters('uniqueSuffix'))]",
+            "databaseName": "[format('{0}-db', parameters('prefix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Sql/servers",
+              "apiVersion": "2023-08-01-preview",
+              "name": "[variables('serverName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "administrators": {
+                  "administratorType": "ActiveDirectory",
+                  "azureADOnlyAuthentication": true,
+                  "login": "[parameters('aadAdminLogin')]",
+                  "sid": "[parameters('aadAdminObjectId')]",
+                  "tenantId": "[subscription().tenantId]",
+                  "principalType": "User"
+                },
+                "minimalTlsVersion": "1.2"
+              }
+            },
+            {
+              "type": "Microsoft.Sql/servers/firewallRules",
+              "apiVersion": "2023-08-01-preview",
+              "name": "[format('{0}/{1}', variables('serverName'), 'AllowAzureServices')]",
+              "properties": {
+                "startIpAddress": "0.0.0.0",
+                "endIpAddress": "0.0.0.0"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', variables('serverName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Sql/servers/databases",
+              "apiVersion": "2023-08-01-preview",
+              "name": "[format('{0}/{1}', variables('serverName'), variables('databaseName'))]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Basic",
+                "tier": "Basic",
+                "capacity": 5
+              },
+              "properties": {
+                "collation": "SQL_Latin1_General_CP1_CI_AS",
+                "maxSizeBytes": 2147483648
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', variables('serverName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "serverFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Sql/servers', variables('serverName')), '2023-08-01-preview').fullyQualifiedDomainName]"
+            },
+            "serverName": {
+              "type": "string",
+              "value": "[variables('serverName')]"
+            },
+            "databaseName": {
+              "type": "string",
+              "value": "[variables('databaseName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "function-app-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          },
+          "uniqueSuffix": {
+            "value": "[variables('uniqueSuffix')]"
+          },
+          "sqlServerFqdn": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'sql-deployment'), '2025-04-01').outputs.serverFqdn.value]"
+          },
+          "sqlDatabaseName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'sql-deployment'), '2025-04-01').outputs.databaseName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "15960196671587789062"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "prefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource naming prefix"
+              }
+            },
+            "uniqueSuffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Unique suffix for globally unique names"
+              }
+            },
+            "sqlServerFqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "SQL Server FQDN"
+              }
+            },
+            "sqlDatabaseName": {
+              "type": "string",
+              "metadata": {
+                "description": "SQL Database name"
+              }
+            }
+          },
+          "variables": {
+            "storageAccountName": "[replace(format('{0}st{1}', parameters('prefix'), parameters('uniqueSuffix')), '-', '')]",
+            "functionAppName": "[format('{0}-func-{1}', parameters('prefix'), parameters('uniqueSuffix'))]",
+            "appServicePlanName": "[format('{0}-plan-{1}', parameters('prefix'), parameters('uniqueSuffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-05-01",
+              "name": "[if(greater(length(variables('storageAccountName')), 24), substring(variables('storageAccountName'), 0, 24), variables('storageAccountName'))]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "kind": "StorageV2",
+              "properties": {
+                "supportsHttpsTrafficOnly": true,
+                "minimumTlsVersion": "TLS1_2",
+                "allowBlobPublicAccess": false
+              }
+            },
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2023-12-01",
+              "name": "[variables('appServicePlanName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Y1",
+                "tier": "Dynamic"
+              },
+              "properties": {
+                "reserved": false
+              }
+            },
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2023-12-01",
+              "name": "[variables('functionAppName')]",
+              "location": "[parameters('location')]",
+              "kind": "functionapp",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+                "httpsOnly": true,
+                "siteConfig": {
+                  "netFrameworkVersion": "v8.0",
+                  "ftpsState": "Disabled",
+                  "minTlsVersion": "1.2",
+                  "appSettings": [
+                    {
+                      "name": "AzureWebJobsStorage",
+                      "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', if(greater(length(variables('storageAccountName')), 24), substring(variables('storageAccountName'), 0, 24), variables('storageAccountName')), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', if(greater(length(variables('storageAccountName')), 24), substring(variables('storageAccountName'), 0, 24), variables('storageAccountName'))), '2023-05-01').keys[0].value)]"
+                    },
+                    {
+                      "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+                      "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', if(greater(length(variables('storageAccountName')), 24), substring(variables('storageAccountName'), 0, 24), variables('storageAccountName')), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', if(greater(length(variables('storageAccountName')), 24), substring(variables('storageAccountName'), 0, 24), variables('storageAccountName'))), '2023-05-01').keys[0].value)]"
+                    },
+                    {
+                      "name": "WEBSITE_CONTENTSHARE",
+                      "value": "[toLower(variables('functionAppName'))]"
+                    },
+                    {
+                      "name": "FUNCTIONS_EXTENSION_VERSION",
+                      "value": "~4"
+                    },
+                    {
+                      "name": "FUNCTIONS_WORKER_RUNTIME",
+                      "value": "dotnet-isolated"
+                    },
+                    {
+                      "name": "SqlConnectionString",
+                      "value": "[format('Server=tcp:{0},1433;Database={1};Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;', parameters('sqlServerFqdn'), parameters('sqlDatabaseName'))]"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', if(greater(length(variables('storageAccountName')), 24), substring(variables('storageAccountName'), 0, 24), variables('storageAccountName')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "functionAppName": {
+              "type": "string",
+              "value": "[variables('functionAppName')]"
+            },
+            "functionAppHostname": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2023-12-01').defaultHostName]"
+            },
+            "functionAppResourceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
+            },
+            "principalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2023-12-01', 'full').identity.principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'sql-deployment')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "static-web-app-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          },
+          "uniqueSuffix": {
+            "value": "[variables('uniqueSuffix')]"
+          },
+          "functionAppResourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'function-app-deployment'), '2025-04-01').outputs.functionAppResourceId.value]"
+          },
+          "functionAppLocation": {
+            "value": "[parameters('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "7249518353039121819"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "prefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource naming prefix"
+              }
+            },
+            "uniqueSuffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Unique suffix for globally unique names"
+              }
+            },
+            "functionAppResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Function App resource ID for linked backend"
+              }
+            },
+            "functionAppLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Function App region"
+              }
+            }
+          },
+          "variables": {
+            "swaName": "[format('{0}-swa-{1}', parameters('prefix'), parameters('uniqueSuffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/staticSites",
+              "apiVersion": "2023-12-01",
+              "name": "[variables('swaName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Standard",
+                "tier": "Standard"
+              },
+              "properties": {
+                "stagingEnvironmentPolicy": "Enabled",
+                "allowConfigFileUpdates": true
+              }
+            },
+            {
+              "type": "Microsoft.Web/staticSites/linkedBackends",
+              "apiVersion": "2023-12-01",
+              "name": "[format('{0}/{1}', variables('swaName'), 'backend')]",
+              "properties": {
+                "backendResourceId": "[parameters('functionAppResourceId')]",
+                "region": "[parameters('functionAppLocation')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/staticSites', variables('swaName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "swaName": {
+              "type": "string",
+              "value": "[variables('swaName')]"
+            },
+            "swaHostname": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/staticSites', variables('swaName')), '2023-12-01').defaultHostname]"
+            },
+            "swaDeploymentToken": {
+              "type": "string",
+              "value": "[listSecrets(resourceId('Microsoft.Web/staticSites', variables('swaName')), '2023-12-01').properties.apiKey]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'function-app-deployment')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "sqlServerFqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'sql-deployment'), '2025-04-01').outputs.serverFqdn.value]"
+    },
+    "sqlServerName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'sql-deployment'), '2025-04-01').outputs.serverName.value]"
+    },
+    "sqlDatabaseName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'sql-deployment'), '2025-04-01').outputs.databaseName.value]"
+    },
+    "functionAppName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'function-app-deployment'), '2025-04-01').outputs.functionAppName.value]"
+    },
+    "functionAppHostname": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'function-app-deployment'), '2025-04-01').outputs.functionAppHostname.value]"
+    },
+    "functionAppPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'function-app-deployment'), '2025-04-01').outputs.principalId.value]"
+    },
+    "swaName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'static-web-app-deployment'), '2025-04-01').outputs.swaName.value]"
+    },
+    "swaHostname": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'static-web-app-deployment'), '2025-04-01').outputs.swaHostname.value]"
+    },
+    "swaDeploymentToken": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'static-web-app-deployment'), '2025-04-01').outputs.swaDeploymentToken.value]"
+    }
+  }
+}
