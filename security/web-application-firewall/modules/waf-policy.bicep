@@ -25,7 +25,7 @@ resource wafPolicy 'Microsoft.Network/FrontDoorWebApplicationFirewallPolicies@20
         {
           ruleSetType: 'Microsoft_DefaultRuleSet'
           ruleSetVersion: '2.1'
-          ruleSetAction: 'Block'
+          ruleSetAction: 'Log'
         }
         {
           ruleSetType: 'Microsoft_BotManagerRuleSet'

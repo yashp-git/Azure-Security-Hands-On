@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "13581105626114276519"
+      "templateHash": "17164064864057543991"
     }
   },
   "parameters": {
@@ -69,21 +69,13 @@
         "logs": [
           {
             "categoryGroup": "allLogs",
-            "enabled": true,
-            "retentionPolicy": {
-              "enabled": true,
-              "days": 30
-            }
+            "enabled": true
           }
         ],
         "metrics": [
           {
             "category": "AllMetrics",
-            "enabled": true,
-            "retentionPolicy": {
-              "enabled": true,
-              "days": 30
-            }
+            "enabled": true
           }
         ]
       },
@@ -113,7 +105,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "9250047929906992017"
+              "templateHash": "12826556614478632484"
             }
           },
           "parameters": {
@@ -156,7 +148,7 @@
                     {
                       "ruleSetType": "Microsoft_DefaultRuleSet",
                       "ruleSetVersion": "2.1",
-                      "ruleSetAction": "Block"
+                      "ruleSetAction": "Log"
                     },
                     {
                       "ruleSetType": "Microsoft_BotManagerRuleSet",
@@ -221,9 +213,6 @@
           },
           "swaHostname": {
             "value": "[parameters('swaHostname')]"
-          },
-          "functionAppHostname": {
-            "value": "[parameters('functionAppHostname')]"
           }
         },
         "template": {
@@ -233,7 +222,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "2658820740188694673"
+              "templateHash": "8106952202819197873"
             }
           },
           "parameters": {
@@ -254,22 +243,13 @@
               "metadata": {
                 "description": "Static Web App default hostname (e.g. xxx.azurestaticapps.net)"
               }
-            },
-            "functionAppHostname": {
-              "type": "string",
-              "metadata": {
-                "description": "Function App default hostname (e.g. xxx.azurewebsites.net)"
-              }
             }
           },
           "variables": {
             "frontDoorName": "[format('{0}-afd', parameters('prefix'))]",
             "webOriginGroupName": "web-origin-group",
-            "apiOriginGroupName": "api-origin-group",
             "webOriginName": "swa-origin",
-            "apiOriginName": "func-origin",
             "webRouteName": "web-route",
-            "apiRouteName": "api-route",
             "webEndpointName": "[format('{0}-web-ep', parameters('prefix'))]",
             "securityPolicyName": "waf-security-policy"
           },
@@ -339,46 +319,6 @@
               ]
             },
             {
-              "type": "Microsoft.Cdn/profiles/originGroups",
-              "apiVersion": "2024-02-01",
-              "name": "[format('{0}/{1}', variables('frontDoorName'), variables('apiOriginGroupName'))]",
-              "properties": {
-                "loadBalancingSettings": {
-                  "sampleSize": 4,
-                  "successfulSamplesRequired": 3,
-                  "additionalLatencyInMilliseconds": 50
-                },
-                "healthProbeSettings": {
-                  "probePath": "/api/health",
-                  "probeRequestType": "GET",
-                  "probeProtocol": "Https",
-                  "probeIntervalInSeconds": 30
-                },
-                "sessionAffinityState": "Disabled"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Cdn/profiles', variables('frontDoorName'))]"
-              ]
-            },
-            {
-              "type": "Microsoft.Cdn/profiles/originGroups/origins",
-              "apiVersion": "2024-02-01",
-              "name": "[format('{0}/{1}/{2}', variables('frontDoorName'), variables('apiOriginGroupName'), variables('apiOriginName'))]",
-              "properties": {
-                "hostName": "[parameters('functionAppHostname')]",
-                "httpPort": 80,
-                "httpsPort": 443,
-                "originHostHeader": "[parameters('functionAppHostname')]",
-                "priority": 1,
-                "weight": 1000,
-                "enabledState": "Enabled",
-                "enforceCertificateNameCheck": true
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Cdn/profiles/originGroups', variables('frontDoorName'), variables('apiOriginGroupName'))]"
-              ]
-            },
-            {
               "type": "Microsoft.Cdn/profiles/afdEndpoints/routes",
               "apiVersion": "2024-02-01",
               "name": "[format('{0}/{1}/{2}', variables('frontDoorName'), variables('webEndpointName'), variables('webRouteName'))]",
@@ -402,33 +342,6 @@
                 "[resourceId('Microsoft.Cdn/profiles/afdEndpoints', variables('frontDoorName'), variables('webEndpointName'))]",
                 "[resourceId('Microsoft.Cdn/profiles/originGroups/origins', variables('frontDoorName'), variables('webOriginGroupName'), variables('webOriginName'))]",
                 "[resourceId('Microsoft.Cdn/profiles/originGroups', variables('frontDoorName'), variables('webOriginGroupName'))]"
-              ]
-            },
-            {
-              "type": "Microsoft.Cdn/profiles/afdEndpoints/routes",
-              "apiVersion": "2024-02-01",
-              "name": "[format('{0}/{1}/{2}', variables('frontDoorName'), variables('webEndpointName'), variables('apiRouteName'))]",
-              "properties": {
-                "originGroup": {
-                  "id": "[resourceId('Microsoft.Cdn/profiles/originGroups', variables('frontDoorName'), variables('apiOriginGroupName'))]"
-                },
-                "patternsToMatch": [
-                  "/api/*"
-                ],
-                "supportedProtocols": [
-                  "Http",
-                  "Https"
-                ],
-                "httpsRedirect": "Enabled",
-                "forwardingProtocol": "HttpsOnly",
-                "linkToDefaultDomain": "Enabled",
-                "enabledState": "Enabled"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Cdn/profiles/originGroups/origins', variables('frontDoorName'), variables('apiOriginGroupName'), variables('apiOriginName'))]",
-                "[resourceId('Microsoft.Cdn/profiles/originGroups', variables('frontDoorName'), variables('apiOriginGroupName'))]",
-                "[resourceId('Microsoft.Cdn/profiles/afdEndpoints', variables('frontDoorName'), variables('webEndpointName'))]",
-                "[resourceId('Microsoft.Cdn/profiles/afdEndpoints/routes', variables('frontDoorName'), variables('webEndpointName'), variables('webRouteName'))]"
               ]
             },
             {
@@ -456,7 +369,6 @@
                 }
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Cdn/profiles/afdEndpoints/routes', variables('frontDoorName'), variables('webEndpointName'), variables('apiRouteName'))]",
                 "[resourceId('Microsoft.Cdn/profiles/afdEndpoints', variables('frontDoorName'), variables('webEndpointName'))]",
                 "[resourceId('Microsoft.Cdn/profiles', variables('frontDoorName'))]",
                 "[resourceId('Microsoft.Cdn/profiles/afdEndpoints/routes', variables('frontDoorName'), variables('webEndpointName'), variables('webRouteName'))]"

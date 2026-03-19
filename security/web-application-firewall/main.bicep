@@ -45,7 +45,6 @@ module frontDoor 'modules/front-door.bicep' = {
     prefix: prefix
     wafPolicyId: wafPolicy.outputs.wafPolicyId
     swaHostname: swaHostname
-    functionAppHostname: functionAppHostname
   }
 }
 
