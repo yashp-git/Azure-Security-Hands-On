@@ -8,6 +8,24 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <!-- Application Insights browser SDK — connection string injected at deploy time -->
+    <script type="text/javascript">
+        window.__APPINSIGHTS_CONNECTION_STRING__ = '__APPINSIGHTS_CONNECTION_STRING__';
+    </script>
+    <script type="text/javascript" src="https://js.monitor.azure.com/scripts/b/ai.2.min.js"></script>
+    <script type="text/javascript">
+        (function () {
+            var cs = window.__APPINSIGHTS_CONNECTION_STRING__;
+            if (cs && cs !== '__APPINSIGHTS_CONNECTION_STRING__') {
+                var init = new Microsoft.ApplicationInsights.ApplicationInsights({
+                    config: { connectionString: cs }
+                });
+                window.appInsights = init.loadAppInsights();
+                window.appInsights.trackPageView();
+            }
+        })();
+    </script>
 </head>
 <body>
     <!-- Animated background particles -->

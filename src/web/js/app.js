@@ -76,6 +76,14 @@
             const data = await res.json();
             updateUI(data, true);
             addActivity(data.ipAddress);
+
+            // Track button click event in Application Insights (if SDK loaded)
+            if (window.appInsights) {
+                window.appInsights.trackEvent({
+                    name: 'ButtonClick',
+                    properties: { ipAddress: data.ipAddress, totalCount: data.totalCount, ipCount: data.ipCount }
+                });
+            }
         } catch (err) {
             console.error('Click failed:', err);
             showError('Click failed — please try again');
