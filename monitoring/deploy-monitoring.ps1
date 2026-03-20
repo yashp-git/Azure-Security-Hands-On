@@ -1,6 +1,6 @@
-<#
+﻿<#
 .SYNOPSIS
-    Deploys Module 4 — Application Insights and diagnostic settings for the Click Counter demo.
+    Deploys Module 4 - Application Insights and diagnostic settings for the Click Counter demo.
 
 .DESCRIPTION
     Configures observability across all deployed resources by:
@@ -16,7 +16,7 @@
 
     Prerequisites:
     - Module 1 (base application) must be deployed
-    - Module 3 (WAF) must be deployed — provides the shared Log Analytics workspace
+    - Module 3 (WAF) must be deployed - provides the shared Log Analytics workspace
     - Module 2 (NSG/VNet) is optional and auto-detected
 
 .PARAMETER Prefix
@@ -49,20 +49,30 @@ if ([string]::IsNullOrEmpty($ResourceGroupName)) {
 }
 
 # ---------------------------------------------------------------------------
-# Helper functions — output formatting (matches deploy.ps1 / deploy-nsg.ps1 / deploy-waf.ps1)
+# Helper functions - output formatting (matches deploy.ps1 / deploy-nsg.ps1 / deploy-waf.ps1)
 # ---------------------------------------------------------------------------
 function Write-Step { param([string]$msg) Write-Host "`n>> $msg" -ForegroundColor Cyan }
 function Write-Ok   { param([string]$msg) Write-Host "   [OK] $msg" -ForegroundColor Green }
 function Write-Err  { param([string]$msg) Write-Host "   [FAIL] $msg" -ForegroundColor Red }
 function Write-Info { param([string]$msg) Write-Host "   $msg" -ForegroundColor Gray }
 
+# Run a native command without letting az CLI stderr warnings trigger ErrorActionPreference=Stop
+function Invoke-Az {
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $result = & az @args 2>&1
+    $ec = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    return [PSCustomObject]@{ Output = $result; ExitCode = $ec }
+}
+
 # ---------------------------------------------------------------------------
-# Step 1 — Prerequisites
+# Step 1 - Prerequisites
 # ---------------------------------------------------------------------------
 Write-Step "Step 1: Checking prerequisites"
 
-$azVersion = az version --query '"azure-cli"' -o tsv 2>$null
-if ($LASTEXITCODE -ne 0) {
+$azVersion = az version -o tsv 2>$null
+if (-not $azVersion) {
     Write-Err "Azure CLI (az) not found. Install from https://aka.ms/install-azure-cli"
     exit 1
 }
@@ -76,7 +86,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Ok "SWA CLI available"
 
 # ---------------------------------------------------------------------------
-# Step 2 — Azure context
+# Step 2 - Azure context
 # ---------------------------------------------------------------------------
 Write-Step "Step 2: Verifying Azure context"
 
@@ -107,7 +117,7 @@ if ($rgExists -ne "true") {
 Write-Ok "Resource group: $ResourceGroupName"
 
 # ---------------------------------------------------------------------------
-# Step 3 — Discover existing resources
+# Step 3 - Discover existing resources
 # ---------------------------------------------------------------------------
 Write-Step "Step 3: Discovering existing deployed resources"
 
@@ -178,18 +188,18 @@ if ([string]::IsNullOrEmpty($swaName)) {
 $swaHostname = az staticwebapp show --name $swaName --resource-group $ResourceGroupName --query defaultHostname -o tsv
 Write-Ok "Static Web App: $swaName ($swaHostname)"
 
-# Log Analytics Workspace (required — from Module 3)
+# Log Analytics Workspace (required - from Module 3)
 Write-Info "Looking for Log Analytics workspace (Module 3)..."
 $logAnalyticsName = az resource list --resource-group $ResourceGroupName --resource-type "Microsoft.OperationalInsights/workspaces" --query "[0].name" -o tsv
 if ([string]::IsNullOrEmpty($logAnalyticsName)) {
     Write-Err "No Log Analytics workspace found in '$ResourceGroupName'."
-    Write-Err "Deploy Module 3 (WAF) first — it creates the shared workspace."
+    Write-Err "Deploy Module 3 (WAF) first - it creates the shared workspace."
     exit 1
 }
 Write-Ok "Log Analytics workspace: $logAnalyticsName"
 
 # ---------------------------------------------------------------------------
-# Step 4 — Auto-detect optional Module 2 resources (VNet / NSGs)
+# Step 4 - Auto-detect optional Module 2 resources (VNet / NSGs)
 # ---------------------------------------------------------------------------
 Write-Step "Step 4: Detecting optional Module 2 resources (VNet / NSGs)"
 
@@ -210,12 +220,12 @@ if (-not [string]::IsNullOrEmpty($vnetName)) {
     if (-not [string]::IsNullOrEmpty($webApiNsgName)) { Write-Ok "Web-API NSG: $webApiNsgName" }
     if (-not [string]::IsNullOrEmpty($apiSqlNsgName)) { Write-Ok "API-SQL NSG: $apiSqlNsgName" }
 } else {
-    Write-Info "No VNet found — Module 2 not deployed (will skip VNet/NSG diagnostics)"
+    Write-Info "No VNet found - Module 2 not deployed (will skip VNet/NSG diagnostics)"
     $vnetName = ""
 }
 
 # ---------------------------------------------------------------------------
-# Step 5 — Auto-detect optional Module 3 resources (Front Door)
+# Step 5 - Auto-detect optional Module 3 resources (Front Door)
 # ---------------------------------------------------------------------------
 Write-Step "Step 5: Detecting optional Module 3 resources (Front Door)"
 
@@ -237,16 +247,16 @@ if (-not [string]::IsNullOrEmpty($frontDoorName)) {
     if ($LASTEXITCODE -eq 0) {
         Write-Ok "Removed old diagnostic setting '$oldDiagName'"
     } else {
-        Write-Info "Old setting '$oldDiagName' not found (already removed or never existed — OK)"
+        Write-Info "Old setting '$oldDiagName' not found (already removed or never existed - OK)"
     }
     Remove-Item $errFile -ErrorAction SilentlyContinue
 } else {
-    Write-Info "No Front Door found — Module 3 not deployed (will skip Front Door diagnostics)"
+    Write-Info "No Front Door found - Module 3 not deployed (will skip Front Door diagnostics)"
     $frontDoorName = ""
 }
 
 # ---------------------------------------------------------------------------
-# Step 6 — Deploy Bicep infrastructure
+# Step 6 - Deploy Bicep infrastructure
 # ---------------------------------------------------------------------------
 Write-Step "Step 6: Deploying Application Insights and diagnostic settings"
 
@@ -304,30 +314,30 @@ Write-Ok "SQL audit logging enabled"
 Write-Ok "Diagnostic settings deployed: Log-Send-To-Workspace"
 
 # ---------------------------------------------------------------------------
-# Step 7 — Configure SWA app settings with App Insights connection string
+# Step 7 - Configure SWA app settings with App Insights connection string
 # ---------------------------------------------------------------------------
 Write-Step "Step 7: Configuring Static Web App with Application Insights"
 
 Write-Info "Setting APPLICATIONINSIGHTS_CONNECTION_STRING on SWA..."
-$errFile = [System.IO.Path]::GetTempFileName()
 
-az staticwebapp appsettings set `
+# Use Invoke-Az to suppress NativeCommandError from az CLI's "settings redacted" warning.
+# The connection string is passed as a single key=value argument; az CLI splits on the
+# first '=' only, so additional '=' in the value are safe.
+$azResult = Invoke-Az staticwebapp appsettings set `
     --name $swaName `
     --resource-group $ResourceGroupName `
-    --setting-names "APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsightsConnString" `
-    2>$errFile | Out-Null
+    --setting-names "APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsightsConnString"
 
-if ($LASTEXITCODE -ne 0) {
+$errText = ($azResult.Output | Out-String)
+if ($azResult.ExitCode -ne 0 -and $errText -notmatch 'WARNING.*redacted') {
     Write-Err "Failed to set SWA app settings."
-    Get-Content $errFile | ForEach-Object { Write-Err "ERROR: $_" }
-    Remove-Item $errFile -ErrorAction SilentlyContinue
+    Write-Err $errText
     exit 1
 }
-Remove-Item $errFile -ErrorAction SilentlyContinue
 Write-Ok "SWA app setting configured"
 
 # ---------------------------------------------------------------------------
-# Step 8 — Re-deploy SWA frontend with App Insights connection string injected
+# Step 8 - Re-deploy SWA frontend with App Insights connection string injected
 # ---------------------------------------------------------------------------
 Write-Step "Step 8: Re-deploying Static Web App frontend with Application Insights SDK"
 
@@ -346,32 +356,40 @@ $tempIndexHtml = Join-Path $tempWebDir "index.html"
 Write-Info "App Insights connection string injected into index.html"
 
 # Get SWA deployment token
-$swaDeployToken = az staticwebapp secrets list `
+$tokenResult = Invoke-Az staticwebapp secrets list `
     --name $swaName `
     --resource-group $ResourceGroupName `
-    --query properties.apiKey -o tsv
+    --query "properties.apiKey" -o tsv
 
-Write-Info "Deploying frontend..."
-$errFile = [System.IO.Path]::GetTempFileName()
-
-npx @azure/static-web-apps-cli deploy $tempWebDir `
-    --deployment-token $swaDeployToken `
-    --env production `
-    2>$errFile | Out-Null
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Err "SWA frontend deployment failed."
-    Get-Content $errFile | ForEach-Object { Write-Err "ERROR: $_" }
-    Remove-Item $errFile -ErrorAction SilentlyContinue
+if ($tokenResult.ExitCode -ne 0 -or [string]::IsNullOrEmpty($tokenResult.Output)) {
+    Write-Err "Failed to retrieve SWA deployment token."
     Remove-Item $tempWebDir -Recurse -Force -ErrorAction SilentlyContinue
     exit 1
 }
-Remove-Item $errFile -ErrorAction SilentlyContinue
+$swaDeployToken = ($tokenResult.Output | Out-String).Trim()
+
+Write-Info "Deploying frontend..."
+$prev = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+
+npx @azure/static-web-apps-cli deploy $tempWebDir `
+    --deployment-token $swaDeployToken `
+    --env production 2>&1 | Tee-Object -Variable swaDeployOutput | Out-Null
+
+$swaDeployExit = $LASTEXITCODE
+$ErrorActionPreference = $prev
+
 Remove-Item $tempWebDir -Recurse -Force -ErrorAction SilentlyContinue
+
+if ($swaDeployExit -ne 0) {
+    Write-Err "SWA frontend deployment failed."
+    $swaDeployOutput | ForEach-Object { Write-Err "  $_" }
+    exit 1
+}
 Write-Ok "SWA frontend re-deployed with Application Insights SDK"
 
 # ---------------------------------------------------------------------------
-# Step 9 — Verify deployment
+# Step 9 - Verify deployment
 # ---------------------------------------------------------------------------
 Write-Step "Step 9: Verifying monitoring deployment"
 
@@ -412,7 +430,7 @@ if ($sqlAuditState -eq "Enabled") {
     Write-Info "SQL audit state: $sqlAuditState (verify in portal)"
 }
 
-# Health check — confirm app is still responding
+# Health check - confirm app is still responding
 Write-Info "Running health check..."
 $healthUrl = "https://$swaHostname/api/health"
 $attempts = 0
@@ -429,39 +447,39 @@ while ($attempts -lt $maxAttempts -and -not $healthy) {
         }
     } catch {
         if ($attempts -lt $maxAttempts) {
-            Write-Info "Health check attempt $attempts/$maxAttempts — waiting 15 seconds..."
+            Write-Info "Health check attempt $attempts/$maxAttempts - waiting 15 seconds..."
             Start-Sleep -Seconds 15
         }
     }
 }
 
 if (-not $healthy) {
-    Write-Info "Health check did not return 200 — app may need a moment to restart after settings update"
+    Write-Info "Health check did not return 200 - app may need a moment to restart after settings update"
 }
 
 # ---------------------------------------------------------------------------
-# Step 10 — Summary
+# Step 10 - Summary
 # ---------------------------------------------------------------------------
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Magenta
-Write-Host "  MODULE 4 — MONITORING DEPLOYMENT COMPLETE" -ForegroundColor Magenta
+Write-Host "  MODULE 4 - MONITORING DEPLOYMENT COMPLETE" -ForegroundColor Magenta
 Write-Host "============================================" -ForegroundColor Magenta
 Write-Host ""
 Write-Host "  Subscription:        $SubscriptionId" -ForegroundColor White
 Write-Host "  Resource Group:      $ResourceGroupName" -ForegroundColor White
 Write-Host "  Region:              $Location" -ForegroundColor White
 Write-Host ""
-Write-Host "  ── Observability Resources ──────────────" -ForegroundColor DarkCyan
+Write-Host "  -- Observability Resources -----------------" -ForegroundColor DarkCyan
 Write-Host "  Log Analytics:       $logAnalyticsName" -ForegroundColor White
 Write-Host "  Application Insights:$appInsightsName" -ForegroundColor White
 Write-Host ""
-Write-Host "  ── Diagnostic Settings (Log-Send-To-Workspace) ──" -ForegroundColor DarkCyan
+Write-Host "  -- Diagnostic Settings (Log-Send-To-Workspace) --" -ForegroundColor DarkCyan
 Write-Host "  Function App:        $functionAppName" -ForegroundColor White
 Write-Host "  Storage Account:     $storageAccountName (account + blob)" -ForegroundColor White
 Write-Host "  App Service Plan:    $appServicePlanName" -ForegroundColor White
 Write-Host "  Static Web App:      $swaName" -ForegroundColor White
 Write-Host "  SQL Database:        $sqlServerName / $sqlDatabaseName" -ForegroundColor White
-Write-Host "  SQL Audit Logging:   Enabled → Azure Monitor" -ForegroundColor White
+Write-Host "  SQL Audit Logging:   Enabled -> Azure Monitor" -ForegroundColor White
 
 if (-not [string]::IsNullOrEmpty($vnetName)) {
     Write-Host "  VNet:                $vnetName" -ForegroundColor White
@@ -474,13 +492,13 @@ if (-not [string]::IsNullOrEmpty($frontDoorName)) {
 }
 
 Write-Host ""
-Write-Host "  ── Application URLs ──────────────────────" -ForegroundColor DarkCyan
+Write-Host "  -- Application URLs ----------------------------" -ForegroundColor DarkCyan
 Write-Host "  Web App:             https://$swaHostname" -ForegroundColor White
 Write-Host "  API Health:          https://$swaHostname/api/health" -ForegroundColor White
 Write-Host ""
-Write-Host "  ── View Telemetry ────────────────────────" -ForegroundColor DarkCyan
+Write-Host "  -- View Telemetry ------------------------------" -ForegroundColor DarkCyan
 Write-Host "  Portal:              https://portal.azure.com" -ForegroundColor White
-Write-Host "  Navigate to:         $ResourceGroupName → $appInsightsName → Logs" -ForegroundColor Gray
+  Write-Host "  Navigate to:         $ResourceGroupName -> $appInsightsName -> Logs" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  Web Status:         " -NoNewline -ForegroundColor White
 if ($healthy) {
